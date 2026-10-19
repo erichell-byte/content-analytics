@@ -1,40 +1,41 @@
-"""Authorize the channel locally, then create a reusable private OAuth token.
-
-Do not upload credentials.json or token.json to GitHub.
-Run: python youtube/connect.py --client-secrets /path/to/downloaded_oauth_json
-"""
+"""Read-only Desktop OAuth with PKCE and a loopback callback."""
 import argparse
 import json
+import os
 from pathlib import Path
 from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
+from common import PRIVATE, SCOPES, client_config, locked, private_dir, verified_channel, write_json
 
-SCOPES = [
-    "https://www.googleapis.com/auth/youtube.readonly",
-    "https://www.googleapis.com/auth/yt-analytics.readonly",
-]
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--client-secrets", required=True)
-    parser.add_argument("--output", default="youtube/token.json")
+    os.umask(0o077)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--client-secrets', required=True)
+    parser.add_argument('--private-dir', type=Path, default=PRIVATE)
     args = parser.parse_args()
-    flow = InstalledAppFlow.from_client_secrets_file(args.client_secrets, scopes=SCOPES)
-    credentials = flow.run_local_server(host="localhost", port=0, open_browser=True, access_type="offline", prompt="consent")
-    youtube = build("youtube", "v3", credentials=credentials)
-    response = youtube.channels().list(part="snippet", mine=True).execute()
-    channels = response.get("items", [])
-    if not channels:
-        raise RuntimeError("No accessible YouTube channel. Check the signed-in account or Brand Account.")
-    print("Authorized YouTube channel:", channels[0]["snippet"]["title"])
-    path = Path(args.output)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(credentials.to_json(), encoding="utf-8")
-    try:
-        path.chmod(0o600)
-    except OSError:
-        pass
-    print("Token stored locally at", path, "— never commit or share it.")
+    config = client_config(args.client_secrets)
+    root = private_dir(args.private_dir)
+    with locked(root):
+        flow = InstalledAppFlow.from_client_config(config, scopes=SCOPES, autogenerate_code_verifier=True)
+        creds = flow.run_local_server(host='127.0.0.1', port=0, open_browser=True,
+            access_type='offline', prompt='consent select_account', timeout_seconds=600,
+            authorization_prompt_message='Google sign-in opened in your system browser.',
+            success_message='Authorization received. You may close this tab.')
+        if not creds.refresh_token or not creds.has_scopes(SCOPES):
+            raise RuntimeError('Offline access or required permissions missing; authorize again.')
+        _, channel = verified_channel(creds)
+        write_json(root / 'client.json', config)
+        write_json(root / 'token.json', json.loads(creds.to_json()))
+        write_json(root / 'channel.json', {'id': channel['id'], 'handle': '@tseyaketsa', 'title': channel['snippet']['title']})
+        print('Verified @tseyaketsa:', channel['id'], channel['snippet']['title'])
+        print('Authorization stored privately outside Git.')
 
-if __name__ == "__main__":
-    main()
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as exc:
+        print('Authorization failed (' + type(exc).__name__ + '). No token was printed.')
+        if isinstance(exc, RuntimeError):
+            print(str(exc))
+        raise SystemExit(1)

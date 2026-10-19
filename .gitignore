@@ -10,3 +10,10 @@ youtube/token.json
 **/client_secret*.json
 **/credentials.json
 data/youtube/
+
+# Local environments, arbitrary token exports and logs
+.venv/
+venv/
+**/token*.json
+**/*oauth*.json
+*.log
