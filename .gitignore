@@ -17,3 +17,9 @@ venv/
 **/token*.json
 **/*oauth*.json
 *.log
+
+# TikTok secrets and all private exports
+tiktok/client.json
+tiktok/account.json
+tiktok/authorization-url.json
+data/tiktok/
