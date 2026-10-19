@@ -4,3 +4,9 @@
 node_modules/
 __pycache__/
 *.pyc
+
+# OAuth credentials and private analytics
+youtube/token.json
+**/client_secret*.json
+**/credentials.json
+data/youtube/
