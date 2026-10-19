@@ -44,7 +44,7 @@ Refreshed tokens are saved. Collection never starts an interactive login.
 Local permissions protect against other OS users, not software running as your
 user or administrators. These files are not separately encrypted; use macOS
 FileVault and account security. Device backups may include this directory.
-The original client download is not deleted or altered by setup.
+The original client download is retained. Keep its permissions owner-only (0600).
 
 `--private-dir /absolute/private/path` works for manual connection/collection.
 The scheduler intentionally uses the default directory.
